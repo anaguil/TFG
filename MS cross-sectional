@@ -1,0 +1,169 @@
+MS <- function(dat,tp, SA, CI, FI, GC, MC, CT, GMV){
+  # Age, sex and group of all images (do it only for baseline subjects?)
+  age <- dat$age 
+  sex <- dat$scode
+  group <- dat$dcode
+  euler <- dat$euler_norm
+  
+  # z-score to normalize
+  SA_zscore <- scale(t(SA))
+  CI_zscore <- scale(t(CI))
+  FI_zscore <- scale(t(FI))
+  GC_zscore <- scale(t(GC))
+  MC_zscore <- scale(t(MC))
+  CT_zscore <- scale(t(CT))
+  GMV_zscore <- scale(t(GMV))
+  
+  nregs=ncol(SA) # number of regions
+  nsubs=length(group) # number of subjects  
+  
+  # Calculate MS matrices
+  # Create a df for each subject with all of the required inputs
+  subj_features7 = array(0, dim=c(nregs,7,nsubs))
+  for (subj in 1:nsubs){
+    subj_features7[,1,subj] <- SA_zscore[,subj]
+    subj_features7[,2,subj] <- CI_zscore[,subj]
+    subj_features7[,3,subj] <- FI_zscore[,subj]
+    subj_features7[,4,subj] <- GC_zscore[,subj]
+    subj_features7[,5,subj] <- MC_zscore[,subj]
+    subj_features7[,6,subj] <- CT_zscore[,subj]
+    subj_features7[,7,subj] <- GMV_zscore[,subj]}
+  
+  # Calculate the MS matrices by correlating all inputs and set the diagonal to zero
+  subj_MSN_7 = array(0, dim=c(nregs,nregs,nsubs))
+  for (subj in 1:nsubs){
+    subj_MSN_7[,,subj] <- cor(t(subj_features7[,,subj]))             
+    diag(subj_MSN_7[,,subj]) <- 0}
+  
+  # Calculate mean regional MS
+  meanMS_regional = array(0, dim=c(nsubs,nregs))
+  for (subj in 1:nsubs)
+    meanMS_regional[subj,] <- colSums(subj_MSN_7[,,subj])/(nregs-1)
+  
+  # Global differences in MS
+  x1 <- age                                                                  
+  x2 <- sex
+  X <- cbind(array(1,dim=c(length(x1),1)),x1, x2, x1*x2) 
+  
+  # Calculate regional residuals                                               
+  myresid_region = array(0, dim=c(nregs,nsubs))
+  for (region in 1:nregs){ 
+    y <- meanMS_regional[,region]                                        
+    regress <- lm(y~X)  
+    b <- regress$coefficients
+    bint <- regress$effects
+    resid <- regress$residuals
+    #Skip coefficient b2 since it is NA
+    YFIT <- b[1] + b[3]*x1 + b[4]*x2 + b[5]*x1*x2                               
+    myresid_region[region,] <- y-YFIT                                     
+  }
+  
+  # control=0, patient=1
+  cons <- which(group==0)                                                                
+  pats <- which(group==1)                                                            
+  
+  x <- myresid_region[,cons]
+  dim(x) = c(nregs*length(cons),1)
+  y <- myresid_region[,pats]
+  dim(y) = c(nregs*length(pats),1)    
+
+  # Plot histograms of regional residuals for control subjects and patients:
+  h1 <- hist(x, main=paste0("Histograms of regional residuals, ", nregs, " regions"),prob = T, xlab = 'MS-Regional Residuals', ylab = 'Relative frequency', ylim = c(0,16))
+  h2 <- hist(y, add= T, prob = T, col=rgb(1, 0, 0, 1/4, alpha = 0.5), ylim = c(0,16))
+  legend(x="topright", legend = c("Controls", "Patients"), fill = c("lightgray", rgb(1, 0, 0, 1/4)))
+  
+  # Calculate mean MS:    
+  meanMS = array(0, dim=c(1,nsubs))
+  for (subj in 1:nsubs)                                                             
+    meanMS[subj] <- mean(meanMS_regional[subj,])                                 
+  
+  tbl <- data.frame(age,sex,group,t(meanMS))
+  tbl$V1 <- tbl$age
+  tbl$V1.1 <- factor(tbl$sex)                                                    
+  tbl$V1.2 <- factor(tbl$group)                                             
+  lm <- lm(tbl$t.meanMS.~tbl$V1*tbl$V1.1+tbl$V1.2)                                             
+  p_mean <- summary(lm)$coefficients[4,4]# p-value for the effect of group on mean MS         
+  
+  # Plot box plot
+  myresid_region_mean = array(0, dim=c(1,nsubs))
+  for (subj in 1:nsubs)                                                           
+    myresid_region_mean[subj] <- mean(myresid_region[,subj])
+  
+  boxplot(myresid_region_mean~t(group),notch=TRUE, names = c('Controls', 'Patients'),
+          ylab='Mean residual', main=paste0(nregs, " regions"))  
+  
+  # Calculate a t-statistic for regional differences in morphometric similarity
+  mytstat = array(0, dim=c(nregs,1))
+  mypval = array(0, dim=c(nregs,1))
+  for (region in 1:nregs){
+    tbl <- data.frame(age,sex,group,euler,meanMS_regional[,region])
+    tbl$sex <- factor(tbl$sex)                                                    
+    tbl$group <- factor(tbl$group)
+    lm <- lm(tbl$meanMS_regional...region.~tbl$age+tbl$sex+tbl$group+tbl$euler) #meanMS_reg~age+sex+group+euler
+    mytstat[region] = summary(lm)$coefficients[4,3]
+    mypval[region] = summary(lm)$coefficients[4,4]}
+  
+  pvalue_fdr <- p.adjust(mypval, method = "BH") # FDR corrected p-values
+  sigregs <- which(pvalue_fdr<0.05) # list of the statistically significant regions
+  meanMS_regional_con <- meanMS_regional[which(group==0),] #mean for controls(group 0)
+  meanMS_regional_pat <- meanMS_regional[which(group==1),] #mean for patients(group 1)
+  meanMS_con <- colMeans(meanMS_regional_con)
+  meanMS_pat <- colMeans(meanMS_regional_pat)
+  
+  plot(meanMS_con,mytstat,pch=4, xlab = "Mean control MS", ylab = "Case-control t-statistic", main=paste0(nregs, " regions"))
+  abline(v=0, col="blue")
+  abline(h=0, col="blue")
+  abline(lm(mytstat ~ meanMS_con), col = "red")
+  
+  # Calculate the percentage of scatter points in each quadrant:
+  a=0
+  b=0
+  c=0
+  d=0
+  
+  xvalues <- meanMS_con
+  yvalues <- mytstat
+  
+  for (ind in 1:nregs){
+    xval <- xvalues[ind]
+    yval <- yvalues[ind]
+    if ((xval<0)&&yval>0){ # a is top left quadrant
+      a=a+1}  else if ((xval>0)&&yval>0){ # b is top right quadrant
+        b=b+1}  else if ((xval<0)&&yval<0){ # c is bottom left quadrant
+          c=c+1}  else if ((xval>0)&&yval<0){ # d is bottom right quadrant
+            d=d+1}
+  }
+  
+  a <- a/nregs # percentage of scatter points in the top left quadrant
+  b <- b/nregs # percentage of scatter points in the top right quadrant
+  c <- c/nregs # percentage of scatter points in the bottom left quadrant
+  d <- d/nregs # percentage of scatter points in the bottom right quadrant
+  
+  region <- colnames(SA)
+  region <- substr(region,1,nchar(region)-5)
+  
+  meanMS_con <- as.data.frame(meanMS_con)
+  meanMS_pat <- as.data.frame(meanMS_pat)
+  meanMS_con_68harm <- cbind(region, meanMS_con)
+  meanMS_pat_68harm <- cbind(region, meanMS_pat)
+  
+  mytstat <- as.data.frame(mytstat)
+  colnames(mytstat) <- c("t")
+  mytstat_68harm <- cbind(region, mytstat)
+  
+  reg = array(0, dim=length(sigregs))
+  t = array(0, dim=length(sigregs))
+  i=1
+  for (r in sigregs){
+    reg[i] <- region[r]
+    t[i] <- mytstat[r,1]
+    i = i+1}
+  reg <- as.data.frame(reg)
+  t <- as.data.frame(t)
+  sig_t <- cbind(reg,t)
+  
+  write.csv(meanMS_pat_68harm, paste0("/scripts/meanMS_pat_68_tp",tp,".csv"))
+  write.csv(meanMS_con_68harm, paste0("/scripts/meanMS_con_68_tp",tp,".csv"))
+  write.csv(mytstat_68harm, paste0("/scripts/mytstat_tp",tp,".csv"))
+  write.csv(sig_t, paste0("/scripts/sig_t_tp",tp,".csv"))
+}
