@@ -1,0 +1,206 @@
+MS_longitudinal_app2 <- function(data,data_2,data_3,long){
+  data_baseline <- data %>% filter(timepoint==1)
+  data_2 <- data_2 %>% filter(timepoint==2)
+  data_3 <- data_3 %>% filter(timepoint==3)
+  if (long == "1-2"){
+    data_baseline <- data_baseline %>% filter(subID %in% data_2$subID)}
+  if (long == "1-3"){
+    data_baseline <- data_baseline %>% filter(subID %in% data_3$subID)}
+  if (long == "2-3"){
+    data_2 <- data_2 %>% filter(subID %in% data_3$subID)}
+  
+  for (tp in c(1,2,3)){
+    if (tp == 1){data_tp <- data_baseline}
+    if (tp == 2){data_tp <- data_2}
+    else if(tp == 3){data_tp <- data_3}
+    SA  <- read.csv("/data_J/scripts/area_lC_harmonized_68reg.csv")[,-1:-2]
+    CI <- read.csv("/data_J/scripts/curvind_lC_harmonized_68reg.csv")[,-1:-2]
+    FI <- read.csv("/data_J/scripts/foldind_lC_harmonized_68reg.csv")[,-1:-2]
+    GC <- read.csv("/data_J/scripts/gauscurv_lC_harmonized_68reg.csv")[,-1:-2]
+    MC <- read.csv("/data_J/scripts/meancurv_lC_harmonized_68reg.csv")[,-1:-2]
+    CT <- read.csv("/data_J/scripts/thickness_lC_harmonized_68reg.csv")[,-1:-2]
+    GMV <- read.csv("/data_J/scripts/volume_lC_harmonized_68reg.csv")[,-1:-2]
+    
+    SA <- SA %>% filter(ID %in% data_tp$ID)
+    CI <- CI %>% filter(ID %in% data_tp$ID)
+    FI <- FI %>% filter(ID %in% data_tp$ID)
+    GC <- GC %>% filter(ID %in% data_tp$ID)
+    MC <- MC %>% filter(ID %in% data_tp$ID)
+    CT <- CT %>% filter(ID %in% data_tp$ID)
+    GMV <- GMV %>% filter(ID %in% data_tp$ID)
+    
+    # order by ID and remove ID columns
+    SA <- SA[match(data_tp$ID, SA$ID), ][,-1:-5]
+    CI  <- CI[match(data_tp$ID, CI$ID), ][,-1:-5]
+    FI  <- FI[match(data_tp$ID, FI$ID), ][,-1:-5]
+    GC  <- GC[match(data_tp$ID, GC$ID), ][,-1:-5]
+    MC  <- MC[match(data_tp$ID, MC$ID), ][,-1:-5]
+    CT  <- CT[match(data_tp$ID, CT$ID), ][,-1:-5]
+    GMV  <- GMV[match(data_tp$ID, GMV$ID), ][,-1:-5]
+    
+    # z-score to normalize
+    SA_zscore <- scale(t(SA))
+    CI_zscore <- scale(t(CI))
+    FI_zscore <- scale(t(FI))
+    GC_zscore <- scale(t(GC))
+    MC_zscore <- scale(t(MC))
+    CT_zscore <- scale(t(CT))
+    GMV_zscore <- scale(t(GMV))
+    
+    nregs=68 # number of regions
+    nsubs=nrow(SA) # number of subjects
+    
+    # Calculate MS matrices
+    
+    # Calculate the MS matrices by correlating all inputs and set the diagonal to zero
+    if (tp == 1){
+      # Create a df for each subject with all of the required inputs
+      subj_features7_tp1 = array(0, dim=c(nregs,7,nsubs))
+      for (subj in 1:nsubs){
+        subj_features7_tp1[,1,subj] <- SA_zscore[,subj]
+        subj_features7_tp1[,2,subj] <- CI_zscore[,subj]
+        subj_features7_tp1[,3,subj] <- FI_zscore[,subj]
+        subj_features7_tp1[,4,subj] <- GC_zscore[,subj]
+        subj_features7_tp1[,5,subj] <- MC_zscore[,subj]
+        subj_features7_tp1[,6,subj] <- CT_zscore[,subj]
+        subj_features7_tp1[,7,subj] <- GMV_zscore[,subj]}
+    }
+    if (tp ==2){
+      # Create a df for each subject with all of the required inputs
+      subj_features7_tp2 = array(0, dim=c(nregs,7,nsubs))
+      for (subj in 1:nsubs){
+        subj_features7_tp2[,1,subj] <- SA_zscore[,subj]
+        subj_features7_tp2[,2,subj] <- CI_zscore[,subj]
+        subj_features7_tp2[,3,subj] <- FI_zscore[,subj]
+        subj_features7_tp2[,4,subj] <- GC_zscore[,subj]
+        subj_features7_tp2[,5,subj] <- MC_zscore[,subj]
+        subj_features7_tp2[,6,subj] <- CT_zscore[,subj]
+        subj_features7_tp2[,7,subj] <- GMV_zscore[,subj]}
+    }
+    else if (tp == 3){
+      # Create a df for each subject with all of the required inputs
+      subj_features7_tp3 = array(0, dim=c(nregs,7,nsubs))
+      for (subj in 1:nsubs){
+        subj_features7_tp3[,1,subj] <- SA_zscore[,subj]
+        subj_features7_tp3[,2,subj] <- CI_zscore[,subj]
+        subj_features7_tp3[,3,subj] <- FI_zscore[,subj]
+        subj_features7_tp3[,4,subj] <- GC_zscore[,subj]
+        subj_features7_tp3[,5,subj] <- MC_zscore[,subj]
+        subj_features7_tp3[,6,subj] <- CT_zscore[,subj]
+        subj_features7_tp3[,7,subj] <- GMV_zscore[,subj]}
+    }
+  }
+  
+  
+  if (long =="1-2"){
+    nsubs=dim(data_2)[1]
+    data_tp <- data_2
+    
+    # calculate the changes between timepoints
+    subj_feat_7 = array(0, dim=c(nregs,7,nsubs))
+    for (subj in 1:nsubs){
+      subj_feat_7[,,subj] <- (subj_features7_tp2 - subj_features7_tp1)[,,subj]}
+      
+    # calculate correlation matrix of tp1-tp2 changes
+    subj_MSN_7 = array(0, dim=c(nregs,nregs,nsubs))
+    for (subj in 1:nsubs){
+      subj_MSN_7[,,subj] <- cor(t(subj_feat_7[,,subj]))             
+      diag(subj_MSN_7[,,subj]) <- 0}
+    age <- data_baseline$age 
+    sex <- data_baseline$scode
+    group <- data_baseline$dcode
+    euler <- data_baseline$euler_norm
+  }
+  
+  if (long == "1-3"){
+    nsubs=dim(data_3)[1]
+    data_tp <- data_3
+    
+    # calculate the changes between timepoints
+    subj_feat_7 = array(0, dim=c(nregs,7,nsubs))
+    for (subj in 1:nsubs){
+      subj_feat_7[,,subj] <- (subj_features7_tp3 - subj_features7_tp1)[,,subj]}
+    
+    # calculate correlation matrix of tp1-tp3 changes
+    subj_MSN_7 = array(0, dim=c(nregs,nregs,nsubs))
+    for (subj in 1:nsubs){
+      subj_MSN_7[,,subj] <- cor(t(subj_feat_7[,,subj]))             
+      diag(subj_MSN_7[,,subj]) <- 0}
+    age <- data_baseline$age 
+    sex <- data_baseline$scode
+    group <- data_baseline$dcode
+    euler <- data_baseline$euler_norm
+  }
+  
+  if (long == "2-3"){
+    nsubs=dim(data_3)[1]
+    data_tp <- data_3
+    
+    # calculate the changes between timepoints
+    subj_feat_7 = array(0, dim=c(nregs,7,nsubs))
+    for (subj in 1:nsubs){
+      subj_feat_7[,,subj] <- (subj_features7_tp3 - subj_features7_tp2)[,,subj]}
+    
+    # calculate correlation matrix of tp3-tp2 changes
+    subj_MSN_7 = array(0, dim=c(nregs,nregs,nsubs))
+    for (subj in 1:nsubs){
+      subj_MSN_7[,,subj] <- cor(t(subj_feat_7[,,subj]))             
+      diag(subj_MSN_7[,,subj]) <- 0}
+    age <- data_2$age 
+    sex <- data_2$scode
+    group <- data_2$dcode
+    euler <- data_2$euler_norm
+  }
+  
+  # Calculate mean correlation of changes per region for each subject
+  nsubs=length(group) # number of subjects
+  meanMS_regional = array(0, dim=c(nsubs,nregs))
+  for (subj in 1:nsubs){
+    meanMS_regional[subj,] <- colSums(t(subj_MSN_7[,,subj]))/(nregs-1)}                          
+  
+  # Calculate a t-statistic for regional differences in correlation of changes
+  mytstat = array(0, dim=c(nregs,1))
+  mypval = array(0, dim=c(nregs,1))
+  for (region in 1:nregs){
+    tbl <- data.frame(age,sex,group,euler,meanMS_regional[,region])
+    tbl$sex <- factor(tbl$sex)                                                    
+    tbl$group <- factor(tbl$group)
+    lm <- lm(tbl$meanMS_regional...region.~tbl$age+tbl$sex+tbl$group+tbl$euler) # meanMS_reg~age+sex+group+euler
+    mytstat[region] = summary(lm)$coefficients[4,3]
+    mypval[region] = summary(lm)$coefficients[4,4]}
+  
+  pvalue_fdr <- p.adjust(mypval, method = "BH") # FDR corrected p-values
+  sigregs <- which(pvalue_fdr<0.05) # list of the statistically significant regions
+  meanMS_regional_con <- meanMS_regional[which(group==0),] # mean for controls (group 0)
+  meanMS_regional_pat <- meanMS_regional[which(group==1),] # mean for patients (group 1)
+  meanMS_con <- colMeans(meanMS_regional_con)
+  meanMS_pat <- colMeans(meanMS_regional_pat)
+  
+  region <- colnames(SA)
+  region <- substr(region,1,nchar(region)-5)
+  
+  meanMS_con <- as.data.frame(meanMS_con)
+  meanMS_pat <- as.data.frame(meanMS_pat)
+  meanMS_con_68harm <- cbind(region, meanMS_con)
+  meanMS_pat_68harm <- cbind(region, meanMS_pat)
+  
+  mytstat <- as.data.frame(mytstat)
+  colnames(mytstat) <- c("t")
+  mytstat_68harm <- cbind(region, mytstat)
+  
+  reg = array(0, dim=length(sigregs))
+  t = array(0, dim=length(sigregs))
+  i=1
+  for (r in sigregs){
+    reg[i] <- region[r]
+    t[i] <- mytstat[r,1]
+    i = i+1}
+  reg <- as.data.frame(reg)
+  t <- as.data.frame(t)
+  sig_t <- cbind(reg,t)
+  
+  write.csv(meanMS_con_68harm, paste0("/scripts/meanMS_con_tp",long,".csv"))
+  write.csv(meanMS_pat_68harm, paste0("/scripts/meanMS_pat_tp",long,".csv"))
+  write.csv(mytstat_68harm, paste0("/scripts/mytstat_tp",long,".csv"))
+  write.csv(sig_t, paste0("/scripts/sig_t_tp",long,".csv"))
+  }
