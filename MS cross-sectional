@@ -1,5 +1,22 @@
 MS <- function(dat,tp, SA, CI, FI, GC, MC, CT, GMV){
-  # Age, sex and group of all images (do it only for baseline subjects?)
+  # Function to carry out transversal Morphometric Similarity analyses
+  # Input:
+      # dat: data frame containing information of all subjects (ID, age, sex, group, euler...)
+      # tp: number of timepoint (1, 2, 3, ...)
+      # SA: data frame containing surface area measures of all subjects for all cortical regions
+      # CI: data frame containing curvature index measures of all subjects for all cortical regions
+      # FI: data frame containing folding index measures of all subjects for all cortical regions
+      # GC: data frame containing gaussian curvature measures of all subjects for all cortical regions
+      # MC: data frame containing mean curvature measures of all subjects for all cortical regions
+      # CT: data frame containing cortical thickness measures of all subjects for all cortical regions
+      # GMV: data frame containing gray matter volume measures of all subjects for all cortical regions
+  # Output: saves the follwoing dataframes as *.csv files
+      # meanMS_pat_final: dataframe with mean regional MS for patients
+      # meanMS_con_final: dataframe with mean regional MS for controls
+      # mytstat_final: dataframe with t-statistic values of case-control differences in MS
+      # sig_t: dataframe with t-statistic values after FDR correction of case-control differences in MS
+  
+  # Age, sex and group of all images
   age <- dat$age 
   sex <- dat$scode
   group <- dat$dcode
@@ -144,12 +161,12 @@ MS <- function(dat,tp, SA, CI, FI, GC, MC, CT, GMV){
   
   meanMS_con <- as.data.frame(meanMS_con)
   meanMS_pat <- as.data.frame(meanMS_pat)
-  meanMS_con_68harm <- cbind(region, meanMS_con)
-  meanMS_pat_68harm <- cbind(region, meanMS_pat)
+  meanMS_con_final <- cbind(region, meanMS_con)
+  meanMS_pat_final <- cbind(region, meanMS_pat)
   
   mytstat <- as.data.frame(mytstat)
   colnames(mytstat) <- c("t")
-  mytstat_68harm <- cbind(region, mytstat)
+  mytstat_final <- cbind(region, mytstat)
   
   reg = array(0, dim=length(sigregs))
   t = array(0, dim=length(sigregs))
@@ -162,8 +179,8 @@ MS <- function(dat,tp, SA, CI, FI, GC, MC, CT, GMV){
   t <- as.data.frame(t)
   sig_t <- cbind(reg,t)
   
-  write.csv(meanMS_pat_68harm, paste0("/scripts/meanMS_pat_68_tp",tp,".csv"))
-  write.csv(meanMS_con_68harm, paste0("/scripts/meanMS_con_68_tp",tp,".csv"))
-  write.csv(mytstat_68harm, paste0("/scripts/mytstat_tp",tp,".csv"))
+  write.csv(meanMS_pat_final, paste0("/scripts/meanMS_pat_tp",tp,".csv"))
+  write.csv(meanMS_con_final, paste0("/scripts/meanMS_con_tp",tp,".csv"))
+  write.csv(mytstat_final, paste0("/scripts/mytstat_tp",tp,".csv"))
   write.csv(sig_t, paste0("/scripts/sig_t_tp",tp,".csv"))
 }
