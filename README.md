@@ -1,4 +1,4 @@
-# TFG
+# TFG / Bachelor Thesis
 Here are contained the files with the R code developed for my Bachelor Thesis titled "Longitudinal change in Morphometric Similarity in health and schizophrenia".
 
 A recently developed technique called Morphometric Similarity (Seidlitz et al., 2018) quantifies the interregional correlation of multiple morphometric measures in a single subject. 
