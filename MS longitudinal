@@ -1,7 +1,17 @@
-MS_longitudinal_app2 <- function(data,data_2,data_3,long){
+MS_longitudinal <- function(data,long){
+# Function to carry out longitudinal Morphometric Similarity analyses
+  # Input:
+      # data: data frame containing information of all images (ID, timepoint, age, sex, group, euler...)
+      # long: change in timepoints that you want to study ("1-2", "2-3", "1-3")
+  # Output: saves the follwoing dataframes as *.csv files
+      # meanMS_pat_final: dataframe with mean regional correlation of changes for patients
+      # meanMS_con_final: dataframe with mean regional correlation of changes for controls
+      # mytstat_final: dataframe with t-statistic values of case-control differences in correlation of changes
+      # sig_t: dataframe with t-statistic values after FDR correction of case-control differences in correlation of changes
+  
   data_baseline <- data %>% filter(timepoint==1)
-  data_2 <- data_2 %>% filter(timepoint==2)
-  data_3 <- data_3 %>% filter(timepoint==3)
+  data_2 <- data %>% filter(timepoint==2)
+  data_3 <- data %>% filter(timepoint==3)
   if (long == "1-2"){
     data_baseline <- data_baseline %>% filter(subID %in% data_2$subID)}
   if (long == "1-3"){
@@ -171,22 +181,23 @@ MS_longitudinal_app2 <- function(data,data_2,data_3,long){
   
   pvalue_fdr <- p.adjust(mypval, method = "BH") # FDR corrected p-values
   sigregs <- which(pvalue_fdr<0.05) # list of the statistically significant regions
-  meanMS_regional_con <- meanMS_regional[which(group==0),] # mean for controls (group 0)
-  meanMS_regional_pat <- meanMS_regional[which(group==1),] # mean for patients (group 1)
+  meanMS_regional_con <- meanMS_regional[which(group==0),] # mean correlation of changes for controls (group 0)
+  meanMS_regional_pat <- meanMS_regional[which(group==1),] # mean correlation of changes for patients (group 1)
   meanMS_con <- colMeans(meanMS_regional_con)
   meanMS_pat <- colMeans(meanMS_regional_pat)
   
   region <- colnames(SA)
   region <- substr(region,1,nchar(region)-5)
   
+  # mean correlation of changes in controls and patients
   meanMS_con <- as.data.frame(meanMS_con)
   meanMS_pat <- as.data.frame(meanMS_pat)
-  meanMS_con_68harm <- cbind(region, meanMS_con)
-  meanMS_pat_68harm <- cbind(region, meanMS_pat)
+  meanMS_con_final <- cbind(region, meanMS_con)
+  meanMS_pat_final<- cbind(region, meanMS_pat)
   
   mytstat <- as.data.frame(mytstat)
   colnames(mytstat) <- c("t")
-  mytstat_68harm <- cbind(region, mytstat)
+  mytstat_final <- cbind(region, mytstat)
   
   reg = array(0, dim=length(sigregs))
   t = array(0, dim=length(sigregs))
@@ -199,8 +210,8 @@ MS_longitudinal_app2 <- function(data,data_2,data_3,long){
   t <- as.data.frame(t)
   sig_t <- cbind(reg,t)
   
-  write.csv(meanMS_con_68harm, paste0("/scripts/meanMS_con_tp",long,".csv"))
-  write.csv(meanMS_pat_68harm, paste0("/scripts/meanMS_pat_tp",long,".csv"))
-  write.csv(mytstat_68harm, paste0("/scripts/mytstat_tp",long,".csv"))
+  write.csv(meanMS_con_final, paste0("/scripts/meanMS_con_tp",long,".csv"))
+  write.csv(meanMS_pat_final, paste0("/scripts/meanMS_pat_tp",long,".csv"))
+  write.csv(mytstat_final, paste0("/scripts/mytstat_tp",long,".csv"))
   write.csv(sig_t, paste0("/scripts/sig_t_tp",long,".csv"))
   }
